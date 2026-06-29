@@ -6,6 +6,9 @@
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.AspNetCore.WebUtilities
 @using KrossSounds.Data
+@using Microsoft.AspNetCore.RateLimiting
+
+@attribute [EnableRateLimiting("RegisterPolicy")]
 
 @inject UserManager<ApplicationUser> UserManager
 @inject IUserStore<ApplicationUser> UserStore
@@ -70,6 +73,7 @@
         Input ??= new();
     }
 
+    [EnableRateLimiting("RegisterPolicy")]
     public async Task RegisterUser(EditContext editContext)
     {
         var user = CreateUser();

@@ -4,6 +4,9 @@
 @using Microsoft.AspNetCore.Authentication
 @using Microsoft.AspNetCore.Identity
 @using KrossSounds.Data
+@using Microsoft.AspNetCore.RateLimiting
+
+@attribute [EnableRateLimiting("LoginPolicy")]
 
 @inject UserManager<ApplicationUser> UserManager
 @inject SignInManager<ApplicationUser> SignInManager
@@ -104,6 +107,7 @@
         }
     }
 
+    [EnableRateLimiting("LoginPolicy")]
     public async Task LoginUser()
     {
         if (!string.IsNullOrEmpty(Input.Passkey?.Error))
