@@ -5,13 +5,14 @@ using KrossSounds.Components;
 using KrossSounds.Components.Account;
 using KrossSounds.Data;
 using KrossSounds.Services;
-using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.CookiePolicy;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 using KrossSounds.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
+
+Console.WriteLine("Environment: " + builder.Configuration["ASPNETCORE_ENVIRONMENT"]);
 
 // ── 1. HTTPS & HSTS ────────────────────────────────────────────────────────── 
 // Force le navigateur à utiliser HTTPS pendant 1 an, y compris les sous-domaines. 
@@ -44,21 +45,27 @@ if (!string.IsNullOrWhiteSpace(corsOrigins))
 
 // ── 3. COOKIE POLICY ───────────────────────────────────────────────────────── 
 // Voir section 2.2 pour la configuration détaillée. 
-builder.Services.Configure<CookiePolicyOptions>(options =>
+if (builder.Configuration.UseCookiePolicy())
 {
-    options.Secure = CookieSecurePolicy.Always; // ← Corrige le flag Secure manquant 
-    options.HttpOnly = HttpOnlyPolicy.Always;
-    options.MinimumSameSitePolicy = SameSiteMode.Strict;
-});
+    builder.Services.Configure<CookiePolicyOptions>(options =>
+    {
+        options.Secure = CookieSecurePolicy.Always; // ← Corrige le flag Secure manquant 
+        options.HttpOnly = HttpOnlyPolicy.Always;
+        options.MinimumSameSitePolicy = SameSiteMode.Strict;
+    });
+}
 
 // ── 4. ANTIFORGERY ─────────────────────────────────────────────────────────── 
-builder.Services.AddAntiforgery(options =>
+if (builder.Configuration.UseAntiforgery())
 {
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-    options.Cookie.HttpOnly = true;
-    options.Cookie.SameSite = SameSiteMode.Strict;
-    options.SuppressXFrameOptionsHeader = true; // Géré par SecurityHeadersMiddleware 
-});
+    builder.Services.AddAntiforgery(options =>
+    {
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Strict;
+        options.SuppressXFrameOptionsHeader = true; // Géré par SecurityHeadersMiddleware 
+    });
+}
 
 // ── 5. SESSION ─────────────────────────────────────────────────────────────── 
 builder.Services.AddSession(options =>
@@ -72,37 +79,37 @@ builder.Services.AddSession(options =>
 
 // ── 6. RATE LIMITING (.NET 7+) ─────────────────────────────────────────────── 
 // Voir section 2.5 pour la configuration détaillée. 
-builder.Services.AddRateLimiter(options => 
-{ 
-    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests; 
-    
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
     // ── Politique pour Login : 5 tentatives par minute par IP ──────────────── 
-    options.AddFixedWindowLimiter("LoginPolicy", limiterOptions => 
-    { 
-        limiterOptions.PermitLimit = 5; 
-        limiterOptions.Window = TimeSpan.FromMinutes(1); 
+    options.AddFixedWindowLimiter("LoginPolicy", limiterOptions =>
+    {
+        limiterOptions.PermitLimit = 5;
+        limiterOptions.Window = TimeSpan.FromMinutes(1);
         limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        limiterOptions.QueueLimit = 0; 
-    }); 
-    
-    // ── Politique pour Register : 3 créations de compte par heure par IP ───── 
-    options.AddFixedWindowLimiter("RegisterPolicy", limiterOptions => 
-    { 
-        limiterOptions.PermitLimit = 3; 
-        limiterOptions.Window = TimeSpan.FromHours(1); 
-        limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst; 
-        limiterOptions.QueueLimit = 0; 
+        limiterOptions.QueueLimit = 0;
     });
-    
+
+    // ── Politique pour Register : 3 créations de compte par heure par IP ───── 
+    options.AddFixedWindowLimiter("RegisterPolicy", limiterOptions =>
+    {
+        limiterOptions.PermitLimit = 3;
+        limiterOptions.Window = TimeSpan.FromHours(1);
+        limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        limiterOptions.QueueLimit = 0;
+    });
+
     // ── Politique globale : 100 requêtes par minute (protection DDoS légère) ── 
-    options.AddFixedWindowLimiter("GlobalPolicy", limiterOptions => 
-    { 
-        limiterOptions.PermitLimit = 100; 
-        limiterOptions.Window = TimeSpan.FromMinutes(1); 
-        limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst; 
-        limiterOptions.QueueLimit = 10; 
-    }); 
-}); 
+    options.AddFixedWindowLimiter("GlobalPolicy", limiterOptions =>
+    {
+        limiterOptions.PermitLimit = 100;
+        limiterOptions.Window = TimeSpan.FromMinutes(1);
+        limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        limiterOptions.QueueLimit = 10;
+    });
+});
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -171,18 +178,24 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 app.UseHttpsRedirection();
 
 // Headers de ③sécurité personnalisés 
-app.UseMiddleware<SecurityHeadersMiddleware>(); 
+app.UseMiddleware<SecurityHeadersMiddleware>();
 
 // Cookie Policy 
-app.UseCookiePolicy(); 
+if (builder.Configuration.UseCookiePolicy())
+{
+    app.UseCookiePolicy();
+}
 
-app.UseAntiforgery();
+if (builder.Configuration.UseAntiforgery())
+{
+    app.UseAntiforgery();
+}
 
-app.UseCors("KrossSoundsPolicy"); 
+app.UseCors("KrossSoundsPolicy");
 
 app.UseSession();
 
-app.UseRateLimiter(); 
+app.UseRateLimiter();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()

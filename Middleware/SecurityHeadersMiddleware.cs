@@ -41,6 +41,7 @@ public class SecurityHeadersMiddleware : IMiddleware
                                              "connect-src 'self'; " + 
                                              "media-src 'self'; " + 
                                              "object-src 'none'; " + 
+                                             "frame-src https://www.youtube.com/ https://youtube-nocookie.com;" + 
                                              "frame-ancestors 'none'; " + 
                                              "form-action 'self'; " + 
                                              "base-uri 'self'; " + 
