@@ -1,0 +1,85 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@using KrossSounds.Data
+@using KrossSounds.Models
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext Db
+@inject NavigationManager Nav
+
+<PageTitle>KrossSounds – Partage de sons Korg Kross 2</PageTitle>
+
+<div class="hero">
+    <h1>KrossSounds</h1>
+    <p>La plateforme communautaire pour partager, télécharger et découvrir des sons pour le <strong>Korg Kross 2</strong>.</p>
+    <button class="cta" @onclick='() => Nav.NavigateTo("upload")'>Partager un son</button>
+</div>
+
+<div class="section">
+    <h2>🎧 Top 10 des sons les plus consultés</h2>
+
+    @if (topViewed is null)
+    {
+        <p>Chargement...</p>
+    }
+    else if (!topViewed.Any())
+    {
+        <p>Aucun son pour le moment.</p>
+    }
+    else
+    {
+        <ul class="sound-list">
+            @foreach (var s in topViewed)
+            {
+                <li @onclick='() => Nav.NavigateTo($"/sound/{s.Id}")'>
+                    <strong>@s.Title</strong> — @s.KrossModel  
+                    <br />
+                    <small>@s.DownloadCount téléchargements</small>
+                </li>
+            }
+        </ul>
+    }
+</div>
+
+<div class="section">
+    <h2>🆕 Derniers uploads</h2>
+
+    @if (latest is null)
+    {
+        <p>Chargement...</p>
+    }
+    else if (!latest.Any())
+    {
+        <p>Aucun upload récent.</p>
+    }
+    else
+    {
+        <ul class="sound-list">
+            @foreach (var s in latest)
+            {
+                <li @onclick='() => Nav.NavigateTo($"/sound/{s.Id}")'>
+                    <strong>@s.Title</strong> — @s.KrossModel  
+                    <br />
+                    <small>Ajouté le @s.UploadedAt.ToLocalTime().ToString("dd MMM yyyy")</small>
+                </li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    private List<Sound>? topViewed;
+    private List<Sound>? latest;
+
+    protected override async Task OnInitializedAsync()
+    {
+        topViewed = await Db.Sounds
+            .OrderByDescending(s => s.DownloadCount)
+            .Take(10)
+            .ToListAsync();
+
+        latest = await Db.Sounds
+            .OrderByDescending(s => s.UploadedAt)
+            .Take(5)
+            .ToListAsync();
+    }
+}

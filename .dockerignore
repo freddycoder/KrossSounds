@@ -1,0 +1,40 @@
+# Dossiers de build .NET
+bin/
+obj/
+out/
+
+# Git
+.git/
+.gitignore
+
+# GitHub workflows
+.github/
+
+# Logs
+*.log
+logs/
+
+# Utilisateur / IDE
+*.user
+*.suo
+*.swp
+*.DS_Store
+.vscode/
+.idea/
+
+# Node (si Blazor WASM ou tooling JS)
+node_modules/
+npm-debug.log
+yarn.lock
+
+# Tests
+TestResults/
+coverage/
+
+# Docker
+Dockerfile*
+docker-compose*
+
+# Autres fichiers inutiles
+*.tmp
+*.cache

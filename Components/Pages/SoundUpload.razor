@@ -1,0 +1,332 @@
+@page "/upload"
+@rendermode InteractiveServer
+@using KrossSounds.Data
+@using KrossSounds.Models
+@using KrossSounds.Services
+@using Microsoft.AspNetCore.Authorization
+@using static KrossSounds.Properties.Constante
+@attribute [Authorize]
+@inject ApplicationDbContext Db
+@inject ISoundStorageService Storage
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ILogger<SoundUpload> logger
+
+<div class="upload-container">
+
+    <h3>Uploader un son Kross 2</h3>
+
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert success">@successMessage</div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert error">@errorMessage</div>
+    }
+
+    <EditForm Model="@sound" formname="UploadSoundForm">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <label>Titre</label>
+        <InputText @bind-Value="sound.Title" />
+
+        <label>Description</label>
+        <InputTextArea @bind-Value="sound.Description" />
+
+        <label>Location</label>
+        <InputSelect @bind-Value="sound.Location">
+            @foreach (var tag in AvailableLocation)
+            {
+                <option value="@tag">@tag</option>
+            }
+        </InputSelect>
+
+        <label>Tags</label>
+        <InputSelect @bind-Value="sound.Tags">
+            @foreach (var tag in AvailableTags)
+            {
+                <option value="@tag">@tag</option>
+            }
+        </InputSelect>
+
+        <label>Numéro</label>
+        <InputNumber @bind-Value="sound.Number"></InputNumber>
+
+        <label>Modèle</label>
+        <InputSelect @bind-Value="sound.KrossModel">
+            @foreach (var modelName in AvailableModels)
+            {
+                <option value="@modelName">@modelName</option>
+            }
+        </InputSelect>
+
+        <label>Choisir un fichier existant</label>
+        <InputSelect @bind-Value="sound.ExistingFilePath">
+            <option value="">-- Aucun --</option>
+            @foreach (var file in existingFiles)
+            {
+                <option value="@file">@file</option>
+            }
+        </InputSelect>
+
+        <hr />
+
+        <label>Ou uploader un fichier</label>
+        <InputFile OnChange='HandleFileSelected' class="@fileInputClass" />
+
+        @if (selectedFile != null)
+        {
+            <p>Taille du fichier : @FormatSize(selectedFile.Size)</p>
+        }
+
+        @if (isUploading)
+        {
+            <div class="progress-container">
+                <div class="progress-bar" style="width:@uploadProgress%"></div>
+            </div>
+            <p>Upload en cours... @uploadProgress%</p>
+        }
+
+        <label>Démo, Youtube</label>
+        <InputText @bind-Value="sound.YoutubeUrl" class="@ytInputClass" />
+
+        <button @onclick='() => HandleValidSubmit()' disabled="@isUploading">
+            @(isUploading ? "Upload..." : "Uploader")
+        </button>
+    </EditForm>
+
+</div>
+
+@code {
+    private UploadSoundModel sound = new();
+    private IBrowserFile? selectedFile;
+
+    private bool isUploading = false;
+    private int uploadProgress = 0;
+
+    private string? successMessage;
+    private string? errorMessage;
+
+    private string fileInputClass = "";
+    private List<string> existingFiles = new();
+    private const long MaxFileSize = 10 * 1024 * 1024; // 10 MB
+
+    private string titleInputClass = "";
+    private string ytInputClass = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        existingFiles = await Storage.ListFilesAsync();
+    }
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+
+        if (file.Size > MaxFileSize)
+        {
+            errorMessage = "Le fichier ne doit pas dépasser 10 MB.";
+            fileInputClass = "invalid";
+            selectedFile = null;
+            return;
+        }
+
+        if (file.Name != null && !file.Name.EndsWith(".pcg", StringComparison.InvariantCultureIgnoreCase))
+        {
+            logger.LogInformation("Name was {name}", file.Name);
+
+            errorMessage = "Le fichier doit avoir l'extension .pcg";
+            fileInputClass = "invalid";
+            selectedFile = null;
+            return;
+        }
+
+        errorMessage = null;
+        fileInputClass = "valid";
+        selectedFile = file;
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        logger.LogInformation("Begin handle validation");
+
+        errorMessage = "";
+        successMessage = "";
+
+        if (string.IsNullOrWhiteSpace(sound.Title))
+        {
+            errorMessage = "Le titre est requis";
+            titleInputClass = "invalid";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(sound.ExistingFilePath) && selectedFile is null)
+        {
+            errorMessage = "Veuillez sélectionner un fichier existant ou uploader un fichier.";
+            fileInputClass = "invalid";
+            return;
+        }
+
+        if (sound.ExistingFilePath?.Contains("..") == true)
+        {
+            errorMessage = "Le nom de votre fichier ne doit pas contenir ''..'";
+            fileInputClass = "invalid";
+            return;
+        }
+
+        if (selectedFile != null && selectedFile.Size > MaxFileSize)
+        {
+            errorMessage = "Le fichier ne doit pas dépasser 10 MB.";
+            fileInputClass = "invalid";
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(sound.ExistingFilePath) &&
+            !sound.ExistingFilePath.EndsWith(".pcg", StringComparison.InvariantCultureIgnoreCase))
+        {
+            errorMessage = "Le fichier existant sélectionner doit être de type pcg";
+            fileInputClass = "invalid";
+            return;
+        }
+
+        if (selectedFile != null &&
+            !selectedFile.Name.EndsWith(".pcg", StringComparison.InvariantCultureIgnoreCase))
+        {
+            errorMessage = $"Le fichier doit avoir l'extension .pcg, mais était {selectedFile.Name}";
+            fileInputClass = "invalid";
+            return;
+        }
+
+        if (GetYoutubeUrlInputClass(sound.YoutubeUrl) == "invalid")
+        {
+            ytInputClass = "invalid";
+            return;
+        }
+
+        try
+        {
+            isUploading = true;
+            uploadProgress = 0;
+
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (!user.Identity?.IsAuthenticated ?? true)
+            {
+                errorMessage = "Vous devez être connecté pour uploader un son.";
+                return;
+            }
+
+            string path = "";
+
+            if (!string.IsNullOrWhiteSpace(this.sound.ExistingFilePath))
+            {
+                // L'utilisateur a choisi un fichier existant
+                path = this.sound.ExistingFilePath;
+            }
+            else if (selectedFile != null)
+            {
+                // L'utilisateur a uploadé un fichier → on garde ton code actuel
+                isUploading = true;
+                uploadProgress = 0;
+
+                var buffer = new byte[selectedFile.Size];
+                using var stream = selectedFile.OpenReadStream(maxAllowedSize: 50 * 1024 * 1024);
+
+                int bytesRead;
+                int totalRead = 0;
+
+                while ((bytesRead = await stream.ReadAsync(buffer, totalRead, buffer.Length - totalRead)) > 0)
+                {
+                    totalRead += bytesRead;
+                    uploadProgress = (int)((double)totalRead / buffer.Length * 100);
+                    StateHasChanged();
+                }
+
+                using var uploadStream = new MemoryStream(buffer);
+                path = await Storage.SaveAsync(uploadStream, selectedFile.Name);
+            }
+            else
+            {
+                errorMessage = "Veuillez sélectionner un fichier existant ou uploader un fichier.";
+            }
+
+            var userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            if (!path.StartsWith("uploads"))
+            {
+                throw new InvalidOperationException("path must start with uploads");
+            }
+
+            if (path.Contains(".."))
+            {
+                throw new InvalidOperationException($"path must not contains .. btu was {path}");
+            }
+
+            var newSound = new Sound
+            {
+                Title = this.sound.Title,
+                Description = this.sound.Description,
+                Location = this.sound.Location,
+                Tags = this.sound.Tags,
+                Number = this.sound.Number,
+                KrossModel = this.sound.KrossModel,
+                FilePath = path,
+                YoutubeUrl = this.sound.YoutubeUrl,
+                UserId = userId!
+            };
+
+            Db.Sounds.Add(newSound);
+            await Db.SaveChangesAsync();
+
+            successMessage = "Le son a été ajouté avec succès ! 🎉";
+            this.sound = new();
+            selectedFile = null;
+            fileInputClass = "";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Erreur lors de l'upload : " + ex.Message;
+        }
+        finally
+        {
+            isUploading = false;
+            uploadProgress = 0;
+        }
+    }
+
+    private string FormatSize(long bytes)
+    {
+        double mb = bytes / (1024.0 * 1024.0);
+        return $"{mb:F2} MB";
+    }
+
+    private string GetYoutubeUrlInputClass(string? value)
+    {
+        var att = new YoutubeUrlAttribute();
+
+        var result = att.IsValid(value) ? "valid" : "invalid";
+
+        ytInputClass = result;
+
+        return result;
+    }
+
+    public class UploadSoundModel
+    {
+        public string Title { get; set; } = "";
+        public string? Description { get; set; }
+        public string? Location { get; set; }
+        public string? Tags { get; set; }
+        public int? Number { get; set; }
+        public string? KrossModel { get; set; } = "Kross 2-61";
+
+        [YoutubeUrl]
+        public string? YoutubeUrl { get; set; }
+
+        public string? ExistingFilePath { get; set; }
+    }
+}

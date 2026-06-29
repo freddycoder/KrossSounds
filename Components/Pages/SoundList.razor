@@ -1,0 +1,137 @@
+@page "/sounds"
+@rendermode InteractiveServer
+@using KrossSounds.Data
+@using KrossSounds.Models
+@using Microsoft.EntityFrameworkCore
+@inject ILogger<SoundList> logger
+@inject ApplicationDbContext Db
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+
+<h2>🎧 Liste des sons</h2>
+
+<!-- Barre de recherche -->
+<div class="nav-item px-3 mt-2">
+    <input class="form-control search-box" placeholder="Rechercher un son..." value="@searchText"
+           @oninput="OnSearchChanged" />
+</div>
+
+@if (sounds is null)
+{
+    <p>Chargement...</p>
+}
+else if (!sounds.Any())
+{
+    <p>Aucun son trouvé.</p>
+}
+else
+{
+    <table class="sound-table">
+        <thead>
+            <tr>
+                <th>Titre</th>
+                <th>Modèle</th>
+                <th>Téléchargements</th>
+                <th>Ajouté le</th>
+                <th>Évaluation</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var sound in sounds)
+            {
+                <tr>
+                    <td>@sound.Title</td>
+                    <td>@sound.KrossModel</td>
+                    <td>@sound.DownloadCount</td>
+                    <td>@sound.UploadedAt.ToLocalTime().ToString("dd MMM yyyy")</td>
+                    <td><StarRating Value="@sound.AverageRating" ReadOnly=true /></td>
+                    <td class="actions">
+                        <button class="btn details" @onclick='() => Nav.NavigateTo($"/sound/{sound.Id}")''>
+                            Détails
+                        </button>
+
+                        <DownloadButton Sound="sound" WhenStateChange=' () => StateHasChanged()'></DownloadButton>
+
+                        @if (sound.UserId == currentUserId)
+                        {
+                            <button class="btn delete" @onclick=' () => DeleteSound(sound.Id)'>
+                                Supprimer
+                            </button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Sound>? allSounds;
+    private List<Sound>? sounds;
+    private string? currentUserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        currentUserId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        allSounds = await Db.Sounds
+            .Include(s => s.Reviews)
+            .OrderByDescending(s => s.UploadedAt)
+            .ToListAsync();
+
+        sounds = allSounds;
+    }
+
+    private async Task DeleteSound(int id)
+    {
+        var sound = await Db.Sounds.FirstOrDefaultAsync(s => s.Id == id);
+
+        if (sound is null)
+        {
+            logger.LogInformation("Try to delete sound {id} but sound is null", id);
+            return;
+        }
+
+        if (sound.UserId != currentUserId)
+        {
+            logger.LogInformation("Try to delete sound {id} with user {currentUserId} but owner is {soundUserId}", id,
+currentUserId, sound.UserId);
+            return; // sécurité
+        }
+
+        Db.Sounds.Remove(sound);
+        await Db.SaveChangesAsync();
+
+        sounds!.Remove(sound);
+        StateHasChanged();
+    }
+
+    private string searchText = "";
+
+    private void OnSearchChanged(ChangeEventArgs e)
+    {
+        searchText = e.Value?.ToString() ?? "";
+
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            sounds = allSounds;
+        }
+        else
+        {
+            var term = searchText.Trim().ToLower();
+
+            sounds = allSounds!
+                .Where(s =>
+                    (s.Title?.ToLower().Contains(term) ?? false) ||
+                    (s.KrossModel?.ToLower().Contains(term) ?? false) ||
+                    (s.Description?.ToLower().Contains(term) ?? false) ||
+                    (s.Tags?.ToLower().Contains(term) ?? false)
+                )
+                .ToList();
+        }
+    }
+}

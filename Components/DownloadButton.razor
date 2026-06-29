@@ -1,0 +1,41 @@
+@rendermode InteractiveServer
+@using KrossSounds.Data
+@using KrossSounds.Models
+@inject ApplicationDbContext Db
+@inject NavigationManager Nav
+
+<button class="@CssClass"
+        disabled="@IsLoading"
+        @onclick="Download">
+    @if (IsLoading)
+    {
+        <span class="spinner-border spinner-border-sm"></span>
+    }
+    else
+    {
+        @Label
+    }
+</button>
+
+@code {
+    [Parameter] public Sound? Sound { get; set; }
+    [Parameter] public string Label { get; set; } = "Télécharger";
+    [Parameter] public string CssClass { get; set; } = "btn download";
+    [Parameter] public Action? WhenStateChange { get; set; }
+
+    private bool IsLoading;
+
+    private async Task Download()
+    {
+        if (Sound == null)
+            return;
+
+        IsLoading = true;
+        await Task.Delay(150); // petit délai pour afficher le spinner
+        Sound.DownloadCount++;
+        await Db.SaveChangesAsync();
+        Nav.NavigateTo($"/download/{Sound.Id}", forceLoad: true);
+        IsLoading = false;
+        WhenStateChange?.Invoke();
+    }
+}

@@ -1,0 +1,42 @@
+﻿@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Identity
+@using KrossSounds.Data
+
+@inject SignInManager<ApplicationUser> SignInManager
+@inject IdentityRedirectManager RedirectManager
+
+@if (externalLogins.Length == 0)
+{
+    <div>
+        <p>
+            Il n'y a aucun service d'authentification externe de configuré. Voir cette article <a href="https://learn.microsoft.com/fr-ca/aspnet/core/security/authentication/social/?view=aspnetcore-10.0&tabs=visual-studio">Authentification du fournisseur externe dans ASP.NET Core Identity</a>.
+        </p>
+    </div>
+}
+else
+{
+    <form class="form-horizontal" action="Account/PerformExternalLogin" method="post">
+        <div>
+            <AntiforgeryToken />
+            <input type="hidden" name="ReturnUrl" value="@ReturnUrl" />
+            <p>
+                @foreach (var provider in externalLogins)
+                {
+                    <button type="submit" class="btn btn-primary" name="provider" value="@provider.Name" title="Log in using your @provider.DisplayName account">@provider.DisplayName</button>
+                }
+            </p>
+        </div>
+    </form>
+}
+
+@code {
+    private AuthenticationScheme[] externalLogins = [];
+
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        externalLogins = (await SignInManager.GetExternalAuthenticationSchemesAsync()).ToArray();
+    }
+}

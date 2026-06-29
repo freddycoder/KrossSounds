@@ -1,0 +1,142 @@
+@page "/sound/edit/{Id:int}"
+@rendermode InteractiveServer
+@using KrossSounds.Data
+@using KrossSounds.Models
+@using Microsoft.EntityFrameworkCore
+@using static KrossSounds.Properties.Constante
+@inject ApplicationDbContext Db
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+
+<h3>Modifier le son</h3>
+
+@if (sound == null)
+{
+    <p>Chargement...</p>
+}
+else
+{
+    <div class="upload-container">
+        <EditForm Model="sound" OnValidSubmit="Save">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <label>Titre</label>
+            <InputText @bind-Value="sound.Title" class="@GetInputClass(sound.Title)" />
+
+            <label>Description</label>
+            <InputTextArea @bind-Value="sound.Description" class="@GetInputClass(sound.Description)" />
+
+            <label>Location</label>
+            <InputSelect @bind-Value="sound.Location" class="@GetInputClass(sound.Location)">
+                @foreach (var tag in AvailableLocation)
+                {
+                    <option value="@tag">@tag</option>
+                }
+            </InputSelect>
+
+            <label>Tags</label>
+            <InputSelect @bind-Value="sound.Tags" class="@GetInputClass(sound.Tags)">
+                @foreach (var tag in AvailableTags)
+                {
+                    <option value="@tag">@tag</option>
+                }
+            </InputSelect>
+
+            <label>Numéro</label>
+            <InputNumber @bind-Value="sound.Number"></InputNumber>
+
+            <label>Modèle</label>
+            <InputSelect @bind-Value="sound.KrossModel" class="@GetInputClass(sound.KrossModel)">
+                @foreach (var modelName in AvailableModels)
+                {
+                    <option value="@modelName">@modelName</option>
+                }
+            </InputSelect>
+
+            <label>Démo, Youtube</label>
+            <InputText @bind-Value="sound.YoutubeUrl" class="@GetYoutubeUrlInputClass(sound.YoutubeUrl)" />
+
+            <button @onclick='() => Save()' disabled="@isUploading">
+                @(isUploading ? "Upload..." : "Uploader")
+            </button>
+        </EditForm>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private Sound? sound;
+
+    private bool isUploading;
+    private string ytInputClass = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        sound = await Db.Sounds.FirstOrDefaultAsync(s => s.Id == Id);
+
+        if (sound == null)
+        {
+            Nav.NavigateTo("/sounds");
+            return;
+        }
+
+        // Vérification propriétaire
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (sound.UserId != userId)
+        {
+            Nav.NavigateTo("/sound/" + Id);
+        }
+    }
+
+    private async Task Save()
+    {
+        if (sound == null)
+        {
+            return;
+        }
+
+        if (!sound.FilePath.StartsWith("uploads"))
+        {
+            throw new InvalidOperationException("sound.FilePath must start with uploads");
+        }
+
+        if (sound.FilePath.Contains(".."))
+        {
+            throw new InvalidOperationException("sound.FilePath must not contains ..");
+        }
+
+        if (!sound.FilePath.EndsWith(".pcg", StringComparison.InvariantCultureIgnoreCase))
+        {
+            throw new InvalidOperationException("sound.FilePath must end with .pcg");
+        }
+
+        if (GetYoutubeUrlInputClass(sound.YoutubeUrl) == "invalid")
+        {
+            ytInputClass = "invalid";
+            return;
+        }
+
+        Db.Sounds.Update(sound!);
+        await Db.SaveChangesAsync();
+        Nav.NavigateTo($"/sound/{Id}");
+    }
+
+    private string GetInputClass(string? value)
+        => string.IsNullOrWhiteSpace(value) ? "invalid" : "valid";
+
+    private string GetYoutubeUrlInputClass(string? value)
+    {
+        var att = new YoutubeUrlAttribute();
+
+        var result = att.IsValid(value);
+
+        if (result) {
+            return "valid";
+        }
+
+        return "invalid";
+    }
+}

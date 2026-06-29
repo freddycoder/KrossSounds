@@ -1,0 +1,36 @@
+﻿@inherits LayoutComponentBase
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            <a href="/about" target="_blank">À propos</a>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+
+        <footer class="footer">
+            <p>
+                © @DateTime.Now.Year freddycoder —
+                <a href="https://github.com/freddycoder/KrossSounds" target="_blank">
+                    KrossSounds sur GitHub
+                </a>
+            </p>
+            <p>En utilisant l'application, vous reconnaissez accepter et adhérer aux  <a
+                href="/Account/Condition">conditions d'utilisation</a>.</p>
+            </footer>
+        </main>
+
+    
+    </div>
+
+    <div id="blazor-error-ui" data-nosnippet>
+        Une erreur innatendue est survenue.
+        <a href="." class="reload">Rafraichir</a>
+        <span class="dismiss">🗙</span>
+    </div>

@@ -1,0 +1,189 @@
+@page "/sound/{Id:int}"
+@rendermode InteractiveServer
+@using KrossSounds.Data
+@using KrossSounds.Models
+@using Microsoft.EntityFrameworkCore
+@using KrossSounds.Services
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ISoundStorageService storage
+@inject ApplicationDbContext Db
+@inject NavigationManager Nav
+@inject ILogger<SoundDetails> logger
+
+@if (sound == null)
+{
+    <p>Chargement...</p>
+}
+else
+{
+    <div class="sound-page">
+
+        <!-- SECTION HAUT : Détails + Vidéo -->
+        <div class="top-section">
+
+            <div class="details details-padding">
+                <!-- Tous les détails du son -->
+                <h2>@sound.Title</h2>
+
+                @if (!string.IsNullOrWhiteSpace(sound.Description))
+                {
+                    <p><strong>Description :</strong><br /> @sound.Description</p>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(sound.Location))
+                {
+                    <p><strong>Location :</strong><br /> @sound.Location</p>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(sound.Tags))
+                {
+                    <p><strong>Tags :</strong> @sound.Tags</p>
+                }
+
+                @if (sound.Number != null)
+                {
+                    <p><strong>Number :</strong> @sound.Number</p>
+                }
+
+                <p><strong>Modèle :</strong> @sound.KrossModel</p>
+                <p><strong>Ajouté le :</strong> @sound.UploadedAt.ToLocalTime().ToString("dd MMM yyyy")</p>
+                <p><strong>Nom du fichier :</strong> @sound.FilePath</p>
+                <p><strong>Téléchargements :</strong> @sound.DownloadCount</p>
+
+                <div class="btn-group">
+                    @if (isOwner)
+                    {
+                        <button class="btn btn-primary" @onclick="EditSound">Modifier</button>
+                    }
+
+                    <DownloadButton Sound="sound" WhenStateChange='() => StateHasChanged()'></DownloadButton>
+                </div>
+            </div>
+
+            <div class="video">
+                @if (!string.IsNullOrWhiteSpace(sound.YoutubeUrl))
+                {
+                    var embedUrl = sound.GetEmbedYoutubeUrl();
+
+                    if (embedUrl is not null)
+                    {
+                        <div class="video-container">
+                            <iframe src="@embedUrl" frameborder="0"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowfullscreen>
+                            </iframe>
+                        </div>
+                    }
+                }
+            </div>
+
+        </div>
+
+        <!-- SECTION BAS : Commentaires -->
+        <div class="reviews-section">
+
+            <h3>Évaluation</h3>
+
+            @if (isAuthenticated)
+            {
+                <h4>Laisser une évaluation</h4>
+
+                <EditForm Model="newReview" OnValidSubmit="SubmitReview">
+                    <label>Note</label>
+                    <StarRating @bind-Value="newReview.Rating" />
+
+                    <label>Commentaire</label>
+                    <InputTextArea class="form-control" @bind-Value="newReview.Comment" />
+
+                    <button class="btn btn-primary mt-2">Envoyer</button>
+                </EditForm>
+            }
+            else
+            {
+                <p class="text-muted">Vous devez être connecté pour laisser une évaluation.</p>
+            }
+
+            @if (sound.Reviews.Count == 0)
+            {
+                <p>Aucun review pour ce son.</p>
+            }
+            else
+            {
+                @foreach (var r in sound.Reviews)
+                {
+                    <div class="card my-2 p-2">
+                        <strong>@($"{r.Rating} / 5 ⭐")</strong>
+                        <p>@r.Comment</p>
+                    </div>
+                }
+            }
+        </div>
+
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private Sound? sound;
+
+    private bool isOwner;
+
+    private bool isAuthenticated;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        sound = await Db.Sounds
+            .Include(s => s.Reviews)
+            .FirstOrDefaultAsync(s => s.Id == Id);
+
+        if (sound == null)
+        {
+            Nav.NavigateTo("/sounds");
+            return;
+        }
+
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            isAuthenticated = user.Identity?.IsAuthenticated == true;
+            var userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            isOwner = user.Identity?.IsAuthenticated == true &&
+                      userId == sound.UserId;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Erreur lors de la lecture de l'utilisateur");
+        }
+    }
+
+    private void EditSound()
+    {
+        Nav.NavigateTo($"/sound/edit/{Id}");
+    }
+
+    private Review newReview = new();
+
+    private async Task SubmitReview()
+    {
+        if (sound == null)
+        {
+            return;
+        }
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        newReview.UserId = userId!;
+        newReview.SoundId = sound.Id;
+
+        Db.Reviews.Add(newReview);
+        await Db.SaveChangesAsync();
+
+        newReview = new Review();
+        sound = await Db.Sounds.Include(s => s.Reviews).FirstAsync(s => s.Id == Id);
+    }
+}

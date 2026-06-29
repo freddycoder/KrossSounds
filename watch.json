@@ -1,0 +1,13 @@
+{
+  "watch": {
+    "exclude": [
+      "wwwroot/uploads/**",
+      "Data/*.db",
+      "Data/*.db-wal",
+      "Data/*.db-shm",
+      "**/*.db",
+      "**/*.db-wal",
+      "**/*.db-shm"
+    ]
+  }
+}

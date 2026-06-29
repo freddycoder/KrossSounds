@@ -1,0 +1,86 @@
+@page "/about"
+@using KrossSounds.Data
+@inject ApplicationDbContext Db
+
+<PageTitle>À propos – KrossSounds</PageTitle>
+
+<div class="about-container">
+
+    <h1>À propos de KrossSounds</h1>
+
+    <p class="intro">
+        <strong>KrossSounds</strong> est une plateforme communautaire dédiée au partage de sons 
+        pour le <strong>Korg Kross 2</strong>.  
+        Découvrez, téléchargez et partagez vos sons facilement avec la communauté.
+    </p>
+
+    <section class="stats-section">
+        <h2>📊 Statistiques de la plateforme</h2>
+
+        @if (statsLoaded)
+        {
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>@totalSounds</h3>
+                    <p>Sons disponibles</p>
+                </div>
+
+                <div class="stat-card">
+                    <h3>@totalDownloads</h3>
+                    <p>Téléchargements</p>
+                </div>
+
+                <div class="stat-card">
+                    <h3>@totalUsers</h3>
+                    <p>Membres inscrits</p>
+                </div>
+            </div>
+        }
+        else
+        {
+            <p>Chargement des statistiques...</p>
+        }
+    </section>
+
+    <section>
+        <h2>🎯 Notre mission</h2>
+        <p>
+            Offrir un espace simple, moderne et accessible pour permettre aux utilisateurs du 
+            Korg Kross 2 de partager leurs créations et enrichir leur bibliothèque sonore.
+        </p>
+    </section>
+
+    <section>
+        <h2>🎹 Pourquoi ce site existe ?</h2>
+        <p>
+            Le Korg Kross 2 est un synthétiseur puissant, mais il n’existait pas de plateforme 
+            centralisée pour partager des sons.  
+            KrossSounds comble ce manque en proposant une solution moderne et communautaire.
+        </p>
+    </section>
+
+    <section>
+        <h2>👤 À propos du créateur</h2>
+        <p>
+            Ce site a été créé par un passionné de musique, de technologie et du Korg Kross 2.  
+            L’objectif : offrir un outil utile, simple et agréable à utiliser pour toute la communauté.
+        </p>
+    </section>
+
+</div>
+
+@code {
+    private int totalSounds;
+    private int totalDownloads;
+    private int totalUsers;
+    private bool statsLoaded = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        totalSounds = await Db.Sounds.CountAsync();
+        totalDownloads = await Db.Sounds.SumAsync(s => s.DownloadCount);
+        totalUsers = await Db.Users.CountAsync();
+
+        statsLoaded = true;
+    }
+}

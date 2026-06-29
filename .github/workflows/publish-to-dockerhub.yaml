@@ -1,0 +1,46 @@
+name: Publish Blazor to Dockerhub
+
+on:
+  push:
+    branches:
+      - main
+      - test
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    
+env:
+  REGISTRY_HOSTNAME: erabliereapi
+  IMAGE_NAME: krosssounds
+  IMAGE_TAG: latest
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      # Login into dockerhub
+      # skip this test if the run is trigger form a pull request from a fork
+      - name: Login to Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee
+        with:
+          username: ${{ secrets.registryUsername }}
+          password: ${{ secrets.registryPassword }}
+
+      # Build the image
+      - name: Docker build
+        run: |
+          echo "GITHUB_ACTOR: $GITHUB_ACTOR"
+          docker build -t $IMAGE_NAME:$IMAGE_TAG .
+        
+      # Tag the images
+      - name: Docker tag
+        if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+        run: docker tag $IMAGE_NAME:$IMAGE_TAG $REGISTRY_HOSTNAME/$IMAGE_NAME:$IMAGE_TAG
+
+      # Push the image
+      - name: Docker push
+        if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+        run: docker push $REGISTRY_HOSTNAME/$IMAGE_NAME:$IMAGE_TAG

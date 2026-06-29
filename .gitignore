@@ -1,0 +1,6 @@
+/bin
+/obj
+/wwwroot/uploads/**
+/Data/*.db
+/Data/*.db-shm
+/Data/*.db-wal

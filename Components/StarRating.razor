@@ -1,0 +1,32 @@
+<div class="star-rating">
+    @for (int i = 1; i <= MaxStars; i++)
+    {
+        var starInt = i;
+        <div class="star @(Value >= i ? "selected" : "")"
+              @onclick="(() => ReadOnly ? DoNothing() : OnClick(starInt))">
+            ★
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public double Value { get; set; }
+
+    [Parameter]
+    public EventCallback<int> ValueChanged { get; set; }
+
+    [Parameter]
+    public int MaxStars { get; set; } = 5;
+
+    [Parameter]
+    public bool ReadOnly { get; set; }
+
+    private async Task OnClick(int rating)
+    {
+        Value = rating;
+        await ValueChanged.InvokeAsync(rating);
+    }
+
+    private Task DoNothing() { return Task.CompletedTask; }
+}
