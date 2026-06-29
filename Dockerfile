@@ -14,6 +14,5 @@ COPY --from=build /app/publish .
 EXPOSE 443
 EXPOSE 80
 ENV ASPNETCORE_HTTP_PORTS=80
-ENV ASPNETCORE_HTTPS_PORTS=443
 
 ENTRYPOINT ["dotnet", "KrossSounds.dll"]

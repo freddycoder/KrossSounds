@@ -15,7 +15,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // ── 1. HTTPS & HSTS ────────────────────────────────────────────────────────── 
 // Force le navigateur à utiliser HTTPS pendant 1 an, y compris les sous-domaines. 
-if (string.Equals(bool.TrueString, builder.Configuration["USE_HSTS"]?.Trim(), StringComparison.InvariantCultureIgnoreCase))
+if (builder.Configuration.UseHsts())
 {
     builder.Services.AddHsts(options =>
     {
@@ -162,7 +162,7 @@ else
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
 }
 
-if (string.Equals(bool.TrueString, builder.Configuration["USE_HSTS"]?.Trim(), StringComparison.InvariantCultureIgnoreCase))
+if (builder.Configuration.UseHsts())
 {
     app.UseHsts();
 }

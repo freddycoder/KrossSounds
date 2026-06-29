@@ -4,6 +4,8 @@ public class SecurityHeadersMiddleware : IMiddleware
 {
     public async Task InvokeAsync(HttpContext context, RequestDelegate next)
     {
+        var config = context.RequestServices.GetRequiredService<IConfiguration>();
+
         var headers = context.Response.Headers;
         // ── Supprimer les headers qui révèlent la stack ─────────────────────── 
         headers.Remove("Server"); 
@@ -28,7 +30,9 @@ public class SecurityHeadersMiddleware : IMiddleware
         headers["Cross-Origin-Resource-Policy"] = "same-origin";
         // ── X-XSS-Protection : intentionnellement désactivé // La valeur "1; mode=block" peut introduire des vulnérabilités XSS dans // certains navigateurs. La valeur "0" désactive le filtre XSS du navigateur // (obsolète dans Chrome/Firefox) — CSP doit être la seule protection XSS. 
         headers["X-XSS-Protection"] = "0";
-        // ── Content Security Policy (CSP) ───────────────────────────────────── // Adapté à Razor Pages / MVC avec Bootstrap CDN et scripts inline signés. // Ajuster 'nonce' ou⚠️ 'script-src' selon votre cas réel. 
+        // ── Content Security Policy (CSP) ───────────────────────────────────── 
+        // Adapté à Razor Pages / MVC avec Bootstrap CDN et scripts inline signés. 
+        // Ajuster 'nonce' ou⚠️ 'script-src' selon votre cas réel. 
         headers["Content-Security-Policy"] = "default-src 'self'; " + 
                                              "script-src 'self' 'unsafe-inline'; " +
                                              "style-src 'self' 'unsafe-inline'; " + 
@@ -40,7 +44,7 @@ public class SecurityHeadersMiddleware : IMiddleware
                                              "frame-ancestors 'none'; " + 
                                              "form-action 'self'; " + 
                                              "base-uri 'self'; " + 
-                                             "upgrade-insecure-requests;";
+                                             (config.UseHsts() ? "upgrade-insecure-requests;" : "");
         await next(context);
     }
 }
