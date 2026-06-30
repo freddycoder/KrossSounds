@@ -46,4 +46,12 @@ public static class ConfigurationExtensions
             configuration["ADD_XFRAMEOPTIONDENY"]?.Trim(), 
             StringComparison.InvariantCultureIgnoreCase);
     }
+
+    public static bool UseSecureAntiforgery(this IConfiguration configuration)
+    {
+        return string.Equals(
+            bool.TrueString, 
+            configuration["USE_SECURE_ANTIFORGERY"]?.Trim(), 
+            StringComparison.InvariantCultureIgnoreCase);
+    }
 }

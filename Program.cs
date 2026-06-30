@@ -52,10 +52,13 @@ if (builder.Configuration.UseAntiforgery())
 {
     builder.Services.AddAntiforgery(options =>
     {
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-        options.Cookie.HttpOnly = true;
-        options.Cookie.SameSite = SameSiteMode.Strict;
-        options.SuppressXFrameOptionsHeader = true; // Géré par SecurityHeadersMiddleware 
+        if (builder.Configuration.UseSecureAntiforgery())
+        {
+            options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+            options.Cookie.HttpOnly = true;
+            options.Cookie.SameSite = SameSiteMode.Strict;
+            options.SuppressXFrameOptionsHeader = true; // Géré par SecurityHeadersMiddleware 
+        }
     });
 }
 
