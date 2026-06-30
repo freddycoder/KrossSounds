@@ -23,4 +23,27 @@ public static class ConfigurationExtensions
             configuration["USE_ANTIFORGERY"]?.Trim(), 
             StringComparison.InvariantCultureIgnoreCase);
     }
+
+    public static bool UseSession(this IConfiguration configuration)
+    {
+        return string.Equals(
+            bool.TrueString, 
+            configuration["USE_SESSION"]?.Trim(), 
+            StringComparison.InvariantCultureIgnoreCase);
+    }
+
+    public static bool UseCors(this IConfiguration configuration, out string[] corsOrigins)
+    {
+        var corsOrigin = configuration["CORS_ORIGIN"];
+        corsOrigins = corsOrigin?.Split(',') ?? [];
+        return !string.IsNullOrWhiteSpace(corsOrigin);
+    }
+
+    public static bool AddXFrameOptionsDeny(this IConfiguration configuration)
+    {
+        return string.Equals(
+            bool.TrueString, 
+            configuration["ADD_XFRAMEOPTIONDENY"]?.Trim(), 
+            StringComparison.InvariantCultureIgnoreCase);
+    }
 }

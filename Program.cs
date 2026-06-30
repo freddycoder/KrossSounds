@@ -14,8 +14,6 @@ var builder = WebApplication.CreateBuilder(args);
 
 Console.WriteLine("Environment: " + builder.Configuration["ASPNETCORE_ENVIRONMENT"]);
 
-// ── 1. HTTPS & HSTS ────────────────────────────────────────────────────────── 
-// Force le navigateur à utiliser HTTPS pendant 1 an, y compris les sous-domaines. 
 if (builder.Configuration.UseHsts())
 {
     builder.Services.AddHsts(options =>
@@ -26,16 +24,13 @@ if (builder.Configuration.UseHsts())
     });
 }
 
-// ── 2. POLITIQUE CORS ──────────────────────────────────────────────────────── 
-// Politique restrictive : autorise uniquement le domaine KrossSounds. 
-var corsOrigins = builder.Configuration["CORS_ORIGIN"];
-if (!string.IsNullOrWhiteSpace(corsOrigins))
+if (builder.Configuration.UseCors(out var corsOrigins))
 {
     builder.Services.AddCors(options =>
     {
         options.AddPolicy("KrossSoundsPolicy", policy =>
         {
-            policy.WithOrigins(corsOrigins.Split(','))
+            policy.WithOrigins(corsOrigins)
                 .AllowAnyMethod()
                 .AllowCredentials()
                 .AllowAnyHeader();
@@ -43,8 +38,6 @@ if (!string.IsNullOrWhiteSpace(corsOrigins))
     });
 }
 
-// ── 3. COOKIE POLICY ───────────────────────────────────────────────────────── 
-// Voir section 2.2 pour la configuration détaillée. 
 if (builder.Configuration.UseCookiePolicy())
 {
     builder.Services.Configure<CookiePolicyOptions>(options =>
@@ -55,7 +48,6 @@ if (builder.Configuration.UseCookiePolicy())
     });
 }
 
-// ── 4. ANTIFORGERY ─────────────────────────────────────────────────────────── 
 if (builder.Configuration.UseAntiforgery())
 {
     builder.Services.AddAntiforgery(options =>
@@ -67,18 +59,18 @@ if (builder.Configuration.UseAntiforgery())
     });
 }
 
-// ── 5. SESSION ─────────────────────────────────────────────────────────────── 
-builder.Services.AddSession(options =>
+if (builder.Configuration.UseSession())
 {
-    options.IdleTimeout = TimeSpan.FromMinutes(30);
-    options.Cookie.HttpOnly = true;
-    options.Cookie.IsEssential = true;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-    options.Cookie.SameSite = SameSiteMode.Strict;
-});
+    builder.Services.AddSession(options =>
+    {
+        options.IdleTimeout = TimeSpan.FromMinutes(30);
+        options.Cookie.HttpOnly = true;
+        options.Cookie.IsEssential = true;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.Cookie.SameSite = SameSiteMode.Strict;
+    });
+}
 
-// ── 6. RATE LIMITING (.NET 7+) ─────────────────────────────────────────────── 
-// Voir section 2.5 pour la configuration détaillée. 
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -191,9 +183,15 @@ if (builder.Configuration.UseAntiforgery())
     app.UseAntiforgery();
 }
 
-app.UseCors("KrossSoundsPolicy");
+if (builder.Configuration.UseCors(out _))
+{
+    app.UseCors("KrossSoundsPolicy");
+}
 
-app.UseSession();
+if (builder.Configuration.UseSession())
+{
+    app.UseSession();
+}
 
 app.UseRateLimiter();
 

@@ -15,7 +15,10 @@ public class SecurityHeadersMiddleware : IMiddleware
         // ── HSTS (redondant si UseHsts() est actif, mais utile via reverse proxy) // maxAge=31536000 (1 an), includeSubDomains, preload 
         headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload";
         // ── Empêche l'intégration dans un iframe (clickjacking) 
-        headers["X-Frame-Options"] = "DENY";
+        if (config.AddXFrameOptionsDeny())
+        {
+            headers["X-Frame-Options"] = "DENY";
+        }
         // ── Empêche le MIME sniffing (exécution de fichiers mal typés) 
         headers["X-Content-Type-Options"] = "nosniff";
         // ── Contrôle les informations transmises dans le Referer 
@@ -25,9 +28,9 @@ public class SecurityHeadersMiddleware : IMiddleware
         // ── Cross-Origin Opener Policy : isole le contexte de navigation 
         headers["Cross-Origin-Opener-Policy"] = "same-origin";
         // ── Cross-Origin Embedder Policy (activer si toutes les ressources sont same-origin) // 
-        headers["Cross-Origin-Embedder-Policy"] = "require-corp";
+        headers["Cross-Origin-Embedder-Policy"] = "unsafe-none";
         // ── Cross-Origin Resource Policy 
-        headers["Cross-Origin-Resource-Policy"] = "same-origin";
+        headers["Cross-Origin-Resource-Policy"] = "cross-origin";
         // ── X-XSS-Protection : intentionnellement désactivé // La valeur "1; mode=block" peut introduire des vulnérabilités XSS dans // certains navigateurs. La valeur "0" désactive le filtre XSS du navigateur // (obsolète dans Chrome/Firefox) — CSP doit être la seule protection XSS. 
         headers["X-XSS-Protection"] = "0";
         // ── Content Security Policy (CSP) ───────────────────────────────────── 
@@ -42,7 +45,7 @@ public class SecurityHeadersMiddleware : IMiddleware
                                              "media-src 'self'; " + 
                                              "object-src 'none'; " + 
                                              "frame-src https://www.youtube.com/ https://youtube-nocookie.com;" + 
-                                             "frame-ancestors 'none'; " + 
+                                             "frame-ancestors 'self'; " + 
                                              "form-action 'self'; " + 
                                              "base-uri 'self'; " + 
                                              (config.UseHsts() ? "upgrade-insecure-requests;" : "");
